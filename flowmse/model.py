@@ -29,7 +29,7 @@ class VFModel(pl.LightningModule):
         parser.add_argument("--num_eval_files", type=int, default=10, help="Number of files for speech enhancement performance evaluation during training. Pass 0 to turn off (no checkpoints based on evaluation metrics will be generated).")
         parser.add_argument("--loss_type", type=str, default="mse", help="The type of loss function to use.")
         parser.add_argument("--loss_abs_exponent", type=float, default= 0.5,  help="magnitude transformation in the loss term")
-        parser.add_argument("--mode_condition", type=str, required=True, choices=("ora_kd_noisy_mean_no_grad", "ori_ora_kd_noisy_mean_no_grad", "ori_ora_kd_zero_mean","ori_ora_kd_zero_mean_no_grad","ori_ora_kd_noisy_mean","ori_ora_kd","ori_ora","ori_kd","ora_kd","ori","ori_ora_kd_nograd","ori_kd_nograd","ora_kd_nograd"))
+        parser.add_argument("--mode_condition", type=str, required=True, choices=("ora_kd_zero_mean_no_grad","ora_kd_noisy_mean_no_grad", "ori_ora_kd_noisy_mean_no_grad", "ori_ora_kd_zero_mean","ori_ora_kd_zero_mean_no_grad","ori_ora_kd_noisy_mean","ori_ora_kd","ori_ora","ori_kd","ora_kd","ori","ori_ora_kd_nograd","ori_kd_nograd","ora_kd_nograd"))
         return parser
 
     def __init__(
@@ -175,6 +175,25 @@ class VFModel(pl.LightningModule):
             VECTORFIELD_CLEAN_nograd = VECTORFIELD_CLEAN.detach()
             loss_kd = self._loss(VECTORFIELD_origin,VECTORFIELD_CLEAN_nograd)
             loss = loss_original_flow+loss_oracle_flow+loss_kd
+            
+            
+        elif self.mode_condition == "ora_kd_zero_mean_no_grad":
+            mean, std = self.ode.marginal_prob(x0, t, torch.zeros_like(y))
+            z = torch.randn_like(x0)  #
+            sigmas = std[:, None, None, None]
+            xt = mean + sigmas * z
+            der_std = self.ode.der_std(t)
+            der_mean = self.ode.der_mean(x0,t,torch.zeros_like(y))
+            condVF = der_std * z + der_mean   #target
+            VECTORFIELD_CLEAN =  self(xt,t,y,x0)
+            VECTORFIELD_origin = self(xt,t,y,y)
+            
+            loss_oracle_flow = self._loss(VECTORFIELD_CLEAN,condVF)
+            VECTORFIELD_CLEAN_nograd = VECTORFIELD_CLEAN.detach()
+            loss_kd = self._loss(VECTORFIELD_origin,VECTORFIELD_CLEAN_nograd)
+            
+            
+            loss = loss_oracle_flow+loss_kd
         elif self.mode_condition == "ora_kd_noisy_mean_no_grad":
             mean, std = self.ode.marginal_prob(x0, t, y)
             z = torch.randn_like(x0)  #

@@ -140,10 +140,12 @@ if __name__ == '__main__':
                     CONDITION = Y
                     ENHANCED = Y
                 else:
-                    ENHANCED = xt
-                    xt, _ = model.ode.prior_sampling(Y.shape,ENHANCED)
-                   
-                    CONDITION = ENHANCED
+                    ENHANCED = Y
+                    CONDITION = xt
+                    if "zero_mean" in model.mode_condition:
+                        xt ,_= model.ode.prior_sampling(Y.shape,torch.zeros_like(Y))
+                    elif "noisy_mean" in model.mode_condition:
+                        xt ,_= model.ode.prior_sampling(Y.shape,Y)
                    
                     
                 xt = xt.to(Y.device)
