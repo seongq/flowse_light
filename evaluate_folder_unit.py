@@ -8,7 +8,7 @@ import random
 
 gpu_num = input("gpu number 0,1중")
 while True:
-    ckpt_folders=["/workspace/flowse_KD/logs/dataset_WSJ0-CHiME3_mode_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_e2cmv3y8"]
+    ckpt_folders=["/workspace/flowse_KD/logs/dataset_WSJ0-CHiME3_mode_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_6nxizp1g"]
     
     # ["/workspace/flowse_KD/flowse_KD/logs/dataset_VCTK_corpus_mode_ori_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_eanojvs6","/workspace/flowse_KD/flowse_KD/logs/dataset_VCTK_corpus_mode_ori_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_ay5bpm9w"]
     for ckpt_folder in ckpt_folders:
@@ -21,7 +21,7 @@ while True:
             print("Dataset name not found in the path.")
 
         test_dir = f"/workspace/datasets/{dataset_name}"
-        int_lists = ["1", "2", "3", "4", "5", "6", "7","8","9","10"] # int_list 값들
+        int_lists = ["6","2","3",  "4", "1",  "7", "5","8","9","10"] # int_list 값들
 
         # ckpt 폴더에서 모든 .ckpt 파일 찾기
         ckpt_files = sorted([f for f in os.listdir(ckpt_folder) if f.endswith(".ckpt")])
@@ -32,7 +32,7 @@ while True:
             for ckpt_file in ckpt_files:
                 ckpt_path = os.path.join(ckpt_folder, ckpt_file)
 
-                num_add = random.randint(0, 10)
+                num_add = random.randint(0, 0)
                 
                 if num_add == 0 :
                     num_add =""

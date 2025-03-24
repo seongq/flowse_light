@@ -32,7 +32,7 @@ while True:
             for ckpt_file in ckpt_files:
                 ckpt_path = os.path.join(ckpt_folder, ckpt_file)
 
-                num_add = random.randint(0, 10)
+                num_add = random.randint(0, 0)
                 
                 if num_add == 0 :
                     num_add =""
