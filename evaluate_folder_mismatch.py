@@ -3,9 +3,9 @@ import os
 import re
 # 체크포인트 파일들이 있는 폴더 경로
 gpu_num = input("gpu number 0,1중")
-
+import random
 while True:
-    ckpt_folders= ["/workspace/flowse_KD/logs/dataset_WSJ0-CHiME3_mode_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_e2cmv3y8"]
+    ckpt_folders= ["/workspace/flowse_KD/logs/dataset_VCTK_corpus_mode_pesq_ori_ora_kd_noisy_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_p3j12744"]
                    
                    
                 #    "/workspace/flowse_KD/flowse_KD/logs/dataset_VCTK_corpus_mode_ori_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_eanojvs6","/workspace/flowse_KD/flowse_KD/logs/dataset_VCTK_corpus_mode_ori_ora_kd_zero_mean_no_grad_sigma_min_0.0_sigma_max_0.5_T_rev_1.0_t_eps_0.03_ay5bpm9w"]

@@ -34,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--test_dir")
     parser.add_argument("--ckpt", type=str, help='Path to model checkpoint.')
     parser.add_argument("--int_list", type=int, nargs='+', help="List of integers")
-
+    parser.add_argument("--time_steps", type=str, choices=("gerkmann", "uniform"), default="gerkmann")
 
     args = parser.parse_args()
 
@@ -84,7 +84,15 @@ if __name__ == '__main__':
     else:
         print("No match found")
     epoch_number = extract_epoch(checkpoint_file)
-    target_dir = f"/workspace/results/clean_KD_tiny/{dataset_name}_mode_{model.mode_condition}_epoch_{epoch_number}_{int_list_str}/"
+    
+    if args.time_steps=="gerkmann":
+        target_dir = f"/workspace/results/clean_KD_tiny/{dataset_name}_mode_{model.mode_condition}_epoch_{epoch_number}_{int_list_str}/"
+    elif args.time_steps=="uniform":
+        target_dir = f"/workspace/results/clean_KD_tiny/{dataset_name}_mode_{model.mode_condition}_epoch_{epoch_number}_{int_list_str}_time_steps_{args.time_steps}/"
+    else:
+        raise ValueError(f"Invalid value for time_steps: {args.time_steps}. Must be 'gerkmann' or 'uniform'.")
+        
+    
     results_candidate_path = os.path.join(target_dir, "_avg_results.txt")
     if os.path.exists(results_candidate_path):  # 파일 존재 여부 확인
         print(f"파일이 존재하므로 프로그램을 종료합니다: {results_candidate_path}")
@@ -150,7 +158,10 @@ if __name__ == '__main__':
                    
                     
                 xt = xt.to(Y.device)
-                timesteps = torch.linspace(reverse_starting_point, reverse_end_point, N, device=Y.device)
+                if args.time_steps=="gerkmann":
+                    timesteps = torch.linspace(reverse_starting_point, reverse_end_point, N, device=Y.device)
+                elif args.time_steps=="uniform":
+                    timesteps = torch.linspace(reverse_starting_point, reverse_starting_point/N, N, device=Y.device)
                 for i in range(len(timesteps)):
                     t = timesteps[i]
                     if i == len(timesteps)-1:
@@ -223,4 +234,5 @@ if __name__ == '__main__':
         file.write("epoch: {}\n".format(epoch_number))
         file.write("evaluationnumbers: {}\n".format(int_list_str))
         file.write("mode: {}\n".format(model.mode_condition))
+        file.write("timesteps: {}\n".format(args.time_steps))
         
