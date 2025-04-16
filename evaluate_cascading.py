@@ -149,12 +149,16 @@ if __name__ == '__main__':
                     CONDITION = Y
                     ENHANCED = Y
                 else:
-                    ENHANCED = Y
-                    CONDITION = xt
-                    if "zero_mean" in model.mode_condition:
-                        xt ,_= model.ode.prior_sampling(Y.shape,torch.zeros_like(Y))
-                    elif "noisy_mean" in model.mode_condition:
-                        xt ,_= model.ode.prior_sampling(Y.shape,Y)
+                    if "CTFSE" in model.mode_condition:
+                        CONDITION = (Y+xt)/2
+                        ENHANCED = xt
+                        if "zero_mean" in model.mode_condition:
+                            xt ,_= model.ode.prior_sampling(Y.shape,torch.zeros_like(Y))
+                        elif "noisy_mean" in model.mode_condition:
+                            xt ,_= model.ode.prior_sampling(Y.shape,Y)
+                    
+                    else:
+                       raise("error")
                    
                     
                 xt = xt.to(Y.device)
@@ -169,7 +173,7 @@ if __name__ == '__main__':
                     else:
                         dt = timesteps[i+1]-t
                     vect = torch.ones(Y.shape[0], device=Y.device)*t
-                    xt = xt + dt * model(xt, vect, ENHANCED, CONDITION)            
+                    xt = xt + dt * model(xt, vect, CONDITION, ENHANCED)            
                 
         
         sample = xt.clone()

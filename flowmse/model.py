@@ -30,7 +30,7 @@ class VFModel(pl.LightningModule):
         parser.add_argument("--num_eval_files", type=int, default=10, help="Number of files for speech enhancement performance evaluation during training. Pass 0 to turn off (no checkpoints based on evaluation metrics will be generated).")
         parser.add_argument("--loss_type", type=str, default="mse", help="The type of loss function to use.")
         parser.add_argument("--loss_abs_exponent", type=float, default= 0.5,  help="magnitude transformation in the loss term")
-        parser.add_argument("--mode_condition", type=str, required=True, choices=("pesq_ori_ora_kd_noisy_mean_local_align_no_grad", "pesq_ora_kd_noisy_mean_no_grad","pesq_ori_ora_kd_noisy_mean_no_grad","flowse_noisy_mean", "ori_kd_noisy_mean_no_grad", "flowse","ora_kd_zero_mean_no_grad","ora_kd_noisy_mean_no_grad", "ori_ora_kd_noisy_mean_no_grad", "ori_ora_kd_zero_mean","ori_ora_kd_zero_mean_no_grad","ori_ora_kd_noisy_mean","ori_ora_kd","ori_ora","ori_kd","ora_kd","ori","ori_ora_kd_nograd","ori_kd_nograd","ora_kd_nograd"))
+        parser.add_argument("--mode_condition", type=str, required=True, choices=("orifirstflow_orisecondflow_orafirstflow_orasecondflow_kdfirstCFM_kdsecondCFM_nogradkd_CTFSE_noisy_mean","orifirstflow_orisecondflow_orafirstflow_orasecondflow_kdfirstCFM_kdsecondCFM_nogradkd_CTFSE_MSE_noisy_mean", "pesq_ori_ora_kd_noisy_mean_local_align_no_grad", "pesq_ora_kd_noisy_mean_no_grad","pesq_ori_ora_kd_noisy_mean_no_grad","flowse_noisy_mean", "ori_kd_noisy_mean_no_grad", "flowse","ora_kd_zero_mean_no_grad","ora_kd_noisy_mean_no_grad", "ori_ora_kd_noisy_mean_no_grad", "ori_ora_kd_zero_mean","ori_ora_kd_zero_mean_no_grad","ori_ora_kd_noisy_mean","ori_ora_kd","ori_ora","ori_kd","ora_kd","ori","ori_ora_kd_nograd","ori_kd_nograd","ora_kd_nograd"))
         return parser
 
     def __init__(
@@ -72,9 +72,12 @@ class VFModel(pl.LightningModule):
         # self.mode = mode
         self.sr = sr
         # Initialize PESQ loss if pesq_weight > 0.0
-        self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
-        for param in self.pesq_loss.parameters():
-            param.requires_grad = False
+        if "pesq" in self.mode_condition:
+            self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
+            for param in self.pesq_loss.parameters():
+                param.requires_grad = False
+        else:
+            pass
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -83,8 +86,10 @@ class VFModel(pl.LightningModule):
     def optimizer_step(self, *args, **kwargs):
         # Method overridden so that the EMA params are updated after each optimizer step
         super().optimizer_step(*args, **kwargs)
-        self.ema.update(self.dnn.parameters())
-
+        if "pesq" in self.mode_condition:
+            self.ema.update(self.dnn.parameters())
+        else:
+            self.ema.update(self.parameters())
     # on_load_checkpoint / on_save_checkpoint needed for EMA storing/loading
     def on_load_checkpoint(self, checkpoint):
         ema = checkpoint.get('ema', None)
@@ -102,12 +107,20 @@ class VFModel(pl.LightningModule):
         if not self._error_loading_ema:
             if mode == False and not no_ema:
                 # eval
-                self.ema.store(self.dnn.parameters())        # store current params in EMA
-                self.ema.copy_to(self.dnn.parameters())      # copy EMA parameters over current params for evaluation
+                if "pesq" in self.mode_condition:
+                    self.ema.store(self.dnn.parameters())        # store current params in EMA
+                    self.ema.copy_to(self.dnn.parameters())      # copy EMA parameters over current params for evaluation
+                else:
+                    self.ema.store(self.parameters())        # store current params in EMA
+                    self.ema.copy_to(self.parameters())      # copy EMA parameters over current params for evaluation
             else:
                 # train
-                if self.ema.collected_params is not None:
-                    self.ema.restore(self.dnn.parameters())  # restore the EMA weights (if stored)
+                if "pesq" in self.mode_condition:
+                    if self.ema.collected_params is not None:
+                        self.ema.restore(self.dnn.parameters())  # restore the EMA weights (if stored)
+                else:
+                    if self.ema.collected_params is not None:
+                        self.ema.restore(self.parameters())  # restore the EMA weights (if stored)
         return res
 
     def eval(self, no_ema=False):
@@ -376,6 +389,50 @@ class VFModel(pl.LightningModule):
             
             
             loss = loss_original_flow+loss_oracle_flow+loss_kd + loss_pesq_oracle+loss_pesq_original+loss_localalign_oracle+loss_localalign_origin
+        
+        elif self.mode_condition == "orifirstflow_orisecondflow_orafirstflow_orasecondflow_kdfirstCFM_kdsecondCFM_nogradkd_CTFSE_noisy_mean":
+            mean, std = self.ode.marginal_prob(x0, t, y)
+            z = torch.randn_like(x0)  #
+            sigmas = std[:, None, None, None]
+            xt = mean + sigmas * z
+            der_std = self.ode.der_std(t)
+            der_mean = self.ode.der_mean(x0,t,y)
+            condVF = der_std * z + der_mean   #target
+            VECTORFIELD_CLEAN =  self(xt,t,y,x0)
+            VECTORFIELD_origin = self(xt,t,y,y)
+            loss_original_flow = self._loss(VECTORFIELD_origin,condVF) #orifirstflow
+            loss_oracle_flow = self._loss(VECTORFIELD_CLEAN,condVF) #orafirstflow
+            VECTORFIELD_CLEAN_nograd = VECTORFIELD_CLEAN.detach() #nogradkd
+            loss_kd = self._loss(VECTORFIELD_origin,VECTORFIELD_CLEAN_nograd) #kdfirstCFM
+            
+            
+            
+            x1, z = self.ode.prior_sampling(y.shape,y)
+            D_theta = x1 - self(x1,torch.ones(y.shape[0], device=y.device),y,y)
+            
+            
+            rdm = (1-torch.rand(x0.shape[0], device=x0.device)) * (self.T_rev - self.t_eps) + self.t_eps        
+            t = torch.min(rdm, torch.tensor(self.T_rev))
+            mean, std = self.ode.marginal_prob(x0, t, y)
+            z = torch.randn_like(x0)  #
+            sigmas = std[:, None, None, None]
+            xt = mean + sigmas * z
+            der_std = self.ode.der_std(t)
+            der_mean = self.ode.der_mean(x0,t,y)
+            condVF_second = der_std * z + der_mean   #target
+            
+            CONDITION=(D_theta+y)/2
+            VECTORFIELD_CLEAN_second =  self(xt,t,CONDITION,x0)
+            VECTORFIELD_origin_second = self(xt,t,CONDITION,D_theta)
+            loss_original_flow_second = self._loss(VECTORFIELD_origin_second,condVF_second) #orifirstflow
+            loss_oracle_flow_second = self._loss(VECTORFIELD_CLEAN_second,condVF_second) #orafirstflow
+            VECTORFIELD_CLEAN_second_nograd = VECTORFIELD_CLEAN_second.detach() #nogradkd
+            loss_kd_second = self._loss(VECTORFIELD_origin_second,VECTORFIELD_CLEAN_second_nograd) #kdfirstCFM
+            
+            # MSE = self._loss(D_theta, x0)
+            
+            
+            loss=loss_original_flow+loss_oracle_flow+loss_kd+loss_original_flow_second+loss_oracle_flow_second+loss_kd_second
            
         return loss
     
